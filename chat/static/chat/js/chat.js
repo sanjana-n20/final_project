@@ -6,29 +6,24 @@ document.addEventListener('DOMContentLoaded', function () {
     const onlineStatusText = document.querySelector('#online-status');
     const headerStatusDot = document.querySelector('#header-status-dot');
 
-    // Always scroll to the bottom
     function scrollToBottom() {
         if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
     }
     scrollToBottom();
 
-    // Exit early if we're not on the chat page
     if (!messageInput) return;
 
-    // ── WebSocket setup with auto-reconnect ───────────────────────────────────
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const socketUrl = `${protocol}//${window.location.host}/ws/chat/${otherUser}/`;
 
     let chatSocket = null;
-    let reconnectDelay = 1000;   // start with 1 s, doubles on each failure
     let typingTimeout = null;
 
     function connect() {
         chatSocket = new WebSocket(socketUrl);
 
         chatSocket.onopen = function () {
-            console.log('[WS] Connected');
-            reconnectDelay = 1000; // reset on successful connect
+            console.log('[WS] Connected ✅');
         };
 
         chatSocket.onmessage = function (e) {
@@ -36,7 +31,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (data.action === 'message') {
                 appendMessage(data.message, data.sender, data.timestamp);
-                // Hide typing indicator when a message arrives
                 typingStatus.style.display = 'none';
                 onlineStatusText.style.display = 'inline';
 
@@ -55,24 +49,22 @@ document.addEventListener('DOMContentLoaded', function () {
         };
 
         chatSocket.onclose = function (e) {
-            console.warn(`[WS] Closed (code ${e.code}). Reconnecting in ${reconnectDelay}ms…`);
-            // Mark other user offline in UI when we lose connection
+            console.warn('[WS] Disconnected ❌');
+
+            // Only reconnect if abnormal close
+            if (e.code !== 1000) {
+                setTimeout(connect, 2000);
+            }
+
             setOnlineStatus(false);
-            setTimeout(() => {
-                reconnectDelay = Math.min(reconnectDelay * 2, 30000); // cap at 30 s
-                connect();
-            }, reconnectDelay);
         };
 
         chatSocket.onerror = function (err) {
             console.error('[WS] Error:', err);
-            chatSocket.close();
         };
     }
 
-    connect(); // initial connection
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    connect();
 
     function setOnlineStatus(isOnline) {
         if (isOnline) {
@@ -81,7 +73,6 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             onlineStatusText.textContent = '⚫ Offline';
             headerStatusDot.className = 'status-indicator offline';
-            // Hide typing if they went offline
             typingStatus.style.display = 'none';
             onlineStatusText.style.display = 'inline';
         }
@@ -105,14 +96,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (!text || !chatSocket || chatSocket.readyState !== WebSocket.OPEN) return;
+        if (!text || chatSocket.readyState !== WebSocket.OPEN) return;
 
-        chatSocket.send(JSON.stringify({ action: 'message', message: text }));
+        chatSocket.send(JSON.stringify({
+            action: 'message',
+            message: text
+        }));
+
         messageInput.value = '';
-
-        // Stop typing indicator
-        if (typingTimeout) clearTimeout(typingTimeout);
-        chatSocket.send(JSON.stringify({ action: 'typing', is_typing: false }));
     }
 
     function escapeHTML(str) {
@@ -121,9 +112,10 @@ document.addEventListener('DOMContentLoaded', function () {
         );
     }
 
-    // ── Event listeners ───────────────────────────────────────────────────────
-
-    submitBtn.addEventListener('click', sendMessage);
+    submitBtn.addEventListener('click', function (e) {
+        e.preventDefault(); // 🔥 VERY IMPORTANT
+        sendMessage();
+    });
 
     messageInput.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -133,14 +125,21 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     messageInput.addEventListener('input', function () {
-        if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) return;
+        if (chatSocket.readyState !== WebSocket.OPEN) return;
 
-        chatSocket.send(JSON.stringify({ action: 'typing', is_typing: true }));
+        chatSocket.send(JSON.stringify({
+            action: 'typing',
+            is_typing: true
+        }));
 
         if (typingTimeout) clearTimeout(typingTimeout);
+
         typingTimeout = setTimeout(() => {
             if (chatSocket.readyState === WebSocket.OPEN) {
-                chatSocket.send(JSON.stringify({ action: 'typing', is_typing: false }));
+                chatSocket.send(JSON.stringify({
+                    action: 'typing',
+                    is_typing: false
+                }));
             }
         }, 1500);
     });
