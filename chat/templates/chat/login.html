@@ -1,0 +1,28 @@
+{% extends 'chat/base.html' %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card glass-panel">
+        <h2 class="auth-heading">Welcome Back</h2>
+        <p class="auth-subheading">Log in to your WhatsApp Clone account</p>
+        
+        <form method="post" class="auth-form">
+            {% csrf_token %}
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        <div class="error-msg">{{ field.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn-primary">Sign In</button>
+        </form>
+        
+        <div class="auth-footer">
+            Don't have an account? <a href="{% url 'register' %}">Create one</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
