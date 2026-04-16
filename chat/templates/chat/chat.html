@@ -1,22 +1,34 @@
 {% extends 'chat/base.html' %}
 {% load static %}
+{% load humanize %}
 
 {% block content %}
 <div class="chat-layout">
-    <!-- Sidebar / Contact List Header Only (Mobile approach or simplified sidebar) -->
+
+    <!-- Collapsed sidebar (back button) -->
     <div class="sidebar collapsed-sidebar glass-panel">
         <div class="sidebar-header">
-            <a href="{% url 'user_list' %}" class="back-btn">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            <a href="{% url 'user_list' %}" class="back-btn" title="Back to contacts">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
             </a>
-            <h3>Chats</h3>
         </div>
     </div>
-    
+
     <!-- Active Chat Area -->
     <div class="chat-area active-chat glass-panel">
+
+        <!-- Header -->
         <div class="chat-header">
             <div class="chat-header-user">
+                <a href="{% url 'user_list' %}" class="back-btn" style="margin-right:8px" title="Back">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                </a>
                 <div class="avatar header-avatar">
                     {{ other_user.username.0|upper }}
                     {% if other_is_online %}
@@ -28,58 +40,189 @@
                 <div class="header-info">
                     <h2>{{ other_user.username }}</h2>
                     <div class="status-text">
-                        <span id="online-status">{% if other_is_online %}🟢 Online{% else %}⚫ Offline{% endif %}</span>
-                        <span id="typing-status" class="typing-indicator" style="display: none;">Typing...</span>
+                        <span id="online-status">
+                            {% if other_is_online %}
+                                🟢 Online
+                            {% elif other_last_seen %}
+                                Last seen {{ other_last_seen|naturaltime }}
+                            {% else %}
+                                ⚫ Offline
+                            {% endif %}
+                        </span>
+                        <span id="typing-status" class="typing-indicator" style="display:none">Typing…</span>
                     </div>
                 </div>
             </div>
             <div class="chat-header-actions">
-                <div class="encryption-badge-small">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                <div class="encryption-badge-small" title="End-to-end encrypted">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span style="font-size:11px;margin-left:4px">Encrypted</span>
                 </div>
             </div>
         </div>
-        
+
+        <!-- Messages -->
         <div class="messages-container" id="chat-messages">
             <div class="e2e-notice">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                Messages are end-to-end encrypted. No one outside of this chat, not even the server admin, can read them.
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                Messages &amp; media are end-to-end encrypted. No third party can read them.
             </div>
-            
+
             {% for msg in chat_history %}
                 {% if msg.sender == request.user.username %}
-                    <div class="message sent">
-                        <div class="message-bubble">{{ msg.content }}</div>
-                        <div class="message-meta">{{ msg.timestamp|time:"H:i" }}</div>
-                    </div>
+                    <div class="message sent" data-msg-id="{{ msg.message_id }}">
                 {% else %}
-                    <div class="message received">
-                        <div class="message-bubble">{{ msg.content }}</div>
-                        <div class="message-meta">{{ msg.timestamp|time:"H:i" }}</div>
-                    </div>
+                    <div class="message received" data-msg-id="{{ msg.message_id }}">
                 {% endif %}
+
+                    {% if msg.message_type == 'text' %}
+                        <div class="message-bubble">{{ msg.content }}</div>
+
+                    {% elif msg.message_type == 'image' %}
+                        <div class="media-bubble img-bubble"
+                             data-full-url="{{ msg.media_url }}"
+                             data-filename="{{ msg.media_filename }}"
+                             onclick="openLightbox(this)"
+                             title="Click to view full size"
+                             style="cursor:pointer">
+                            {% if msg.thumbnail_url %}
+                                <img src="{{ msg.thumbnail_url }}" alt="{{ msg.media_filename }}" loading="lazy">
+                            {% else %}
+                                <div style="padding:20px;text-align:center;color:var(--text-muted)">🖼️ {{ msg.media_filename }}</div>
+                            {% endif %}
+                            <div class="media-filename">📷 {{ msg.media_filename }}</div>
+                        </div>
+
+                    {% elif msg.message_type == 'audio' %}
+                        <div class="media-bubble">
+                            <div class="audio-bubble">
+                                <div class="audio-bubble-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+                                </div>
+                                <div class="audio-player-wrap">
+                                    <div class="audio-label">{{ msg.media_filename|default:"Voice message" }}</div>
+                                    <audio controls preload="none" style="width:180px">
+                                        <source src="{{ msg.media_url }}" type="{{ msg.media_mime }}">
+                                    </audio>
+                                </div>
+                            </div>
+                        </div>
+
+                    {% elif msg.message_type == 'video' %}
+                        <div class="media-bubble">
+                            <div class="video-bubble">
+                                <video controls preload="metadata" style="max-width:280px;border-radius:10px">
+                                    <source src="{{ msg.media_url }}" type="{{ msg.media_mime }}">
+                                </video>
+                            </div>
+                            <div class="media-filename">🎥 {{ msg.media_filename }}</div>
+                        </div>
+                    {% endif %}
+
+                    <div class="message-meta">
+                        {{ msg.timestamp|time:"H:i" }}
+                        {% if msg.sender == request.user.username %}
+                            <span class="tick {{ msg.status }}" data-msg-id="{{ msg.message_id }}">
+                                {% if msg.status == 'seen' %}✓✓{% elif msg.status == 'delivered' %}✓✓{% else %}✓{% endif %}
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
             {% endfor %}
         </div>
-        
+
+        <!-- Input Area -->
         <div class="chat-input-area">
-            <button class="icon-btn attachment-btn">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
-            </button>
-            <input type="text" id="chat-message-input" placeholder="Type a message..." autocomplete="off">
-            <button class="icon-btn send-btn" id="chat-message-submit">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-            </button>
+
+            <!-- Hidden file inputs -->
+            <input type="file" id="image-file-input" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none">
+            <input type="file" id="video-file-input" accept="video/mp4,video/webm,video/ogg,video/quicktime" style="display:none">
+            <input type="file" id="audio-file-input" accept="audio/mpeg,audio/ogg,audio/wav,audio/webm,audio/mp4,audio/x-m4a,.mp3,.ogg,.wav,.m4a" style="display:none">
+
+            <!-- FAB attachment menu -->
+            <div class="fab-menu">
+                <button class="icon-btn" id="fab-btn" title="Attach file">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                    </svg>
+                </button>
+                <div class="fab-sub-btns" id="fab-sub-btns">
+                    <button class="fab-sub-btn video" id="fab-video-btn" title="Send video">🎥</button>
+                    <button class="fab-sub-btn audio" id="fab-audio-btn" title="Send audio / record">🎤</button>
+                    <button class="fab-sub-btn image" id="fab-image-btn" title="Send image">📷</button>
+                </div>
+            </div>
+
+            <!-- Text input row -->
+            <div id="input-row" style="display:flex;flex:1;align-items:center;gap:8px">
+                <input type="text" id="chat-message-input" placeholder="Type a message…" autocomplete="off">
+                <button class="icon-btn send-btn" id="chat-message-submit" title="Send">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Audio recorder bar (shown during recording) -->
+            <div class="recorder-bar" id="recorder-bar">
+                <div class="rec-dot"></div>
+                <span class="rec-timer" id="rec-timer">00:00</span>
+                <span style="font-size:12px;color:var(--text-muted);flex:1">Recording…</span>
+                <button class="rec-cancel" id="rec-cancel" title="Cancel recording">✕</button>
+                <button class="rec-send" id="rec-send" title="Send recording">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
         </div>
+    </div><!-- /chat-area -->
+</div><!-- /chat-layout -->
+
+<!-- Upload Progress Overlay -->
+<div id="upload-progress-overlay">
+    <div class="upload-progress-card">
+        <p>Encrypting &amp; uploading…</p>
+        <div class="progress-bar-outer">
+            <div class="progress-bar-inner" id="progress-bar-inner"></div>
+        </div>
+        <div class="upload-pct" id="upload-pct">0%</div>
     </div>
 </div>
 
-<!-- Data needed for WebSocket -->
+<!-- Image Lightbox -->
+<div id="lightbox-overlay" onclick="if(event.target===this)closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()" title="Close">✕</button>
+    <div class="lightbox-content">
+        <img id="lightbox-img" src="" alt="">
+    </div>
+    <div class="lightbox-actions">
+        <a id="lightbox-download" href="#" download class="lightbox-dl-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download
+        </a>
+    </div>
+</div>
+
+<!-- Pass context to JS -->
 <script>
     const currentUser = "{{ request.user.username }}";
-    const otherUser = "{{ other_user.username }}";
+    const otherUser   = "{{ other_user.username }}";
 </script>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'chat/js/chat.js' %}"></script>
+<script type="module" src="{% static 'chat/js/chat.js' %}"></script>
 {% endblock %}

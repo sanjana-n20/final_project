@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     'channels',
     'chat',
 ]
@@ -111,6 +112,28 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Media files (uploaded content)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# ── Secure Upload Configuration ───────────────────────────────────────────────
+# Maximum file size in MB
+MAX_UPLOAD_MB = 25
+
+# Allowed MIME types grouped by category
+ALLOWED_MEDIA_TYPES = {
+    'image': ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+    'audio': ['audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm', 'audio/mp4', 'audio/x-m4a'],
+    'video': ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'],
+}
+
+# Allowed file extensions (additional layer of validation)
+ALLOWED_EXTENSIONS = {
+    'image': ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
+    'audio': ['.mp3', '.ogg', '.wav', '.webm', '.m4a'],
+    'video': ['.mp4', '.webm', '.ogv', '.mov'],
+}
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
