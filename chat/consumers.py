@@ -132,6 +132,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "status": "seen",
                 })
 
+        # ── Delete Message ────────────────────────────────────────────────────
+        elif action == "delete_message":
+            message_id = data.get("message_id")
+            delete_type = data.get("delete_type")
+            if message_id and delete_type:
+                success, msg = await self.delete_message(message_id, delete_type)
+                if success:
+                    if delete_type == "me":
+                        await self.send(text_data=json.dumps({
+                            "action": "msg_deleted",
+                            "message_id": message_id,
+                            "delete_type": "me"
+                        }))
+                    elif delete_type == "everyone":
+                        await self.channel_layer.group_send(self.room_group_name, {
+                            "type": "chat_message_deleted",
+                            "message_id": message_id,
+                            "delete_type": "everyone"
+                        })
+
     # ── Group Event Handlers ──────────────────────────────────────────────────
 
     async def chat_message(self, event):
@@ -182,6 +202,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "action": "msg_status",
             "message_id": event["message_id"],
             "status": event["status"],
+        }))
+
+    async def chat_message_deleted(self, event):
+        await self.send(text_data=json.dumps({
+            "action": "msg_deleted",
+            "message_id": event["message_id"],
+            "delete_type": event["delete_type"],
         }))
 
     # ── Database Helpers ──────────────────────────────────────────────────────
@@ -278,3 +305,33 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }
         except Message.DoesNotExist:
             return None
+
+    @database_sync_to_async
+    def delete_message(self, message_id, delete_type):
+        try:
+            msg = Message.objects.get(id=message_id)
+            if msg.sender != self.user and msg.receiver != self.user:
+                return False, None
+
+            if delete_type == 'me':
+                if msg.sender == self.user:
+                    msg.deleted_by_sender = True
+                if msg.receiver == self.user:
+                    msg.deleted_by_receiver = True
+                msg.save(update_fields=['deleted_by_sender', 'deleted_by_receiver'])
+                return True, msg
+
+            elif delete_type == 'everyone':
+                # Only sender can delete for everyone
+                if msg.sender == self.user:
+                    msg.is_deleted_for_everyone = True
+                    # If there's media, delete the physical files but keep the message record
+                    if msg.media_file:
+                        msg.media_file.delete(save=False)
+                    if msg.thumbnail:
+                        msg.thumbnail.delete(save=False)
+                    msg.save(update_fields=['is_deleted_for_everyone', 'media_file', 'thumbnail'])
+                    return True, msg
+            return False, None
+        except Message.DoesNotExist:
+            return False, None

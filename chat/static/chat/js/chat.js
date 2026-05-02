@@ -66,6 +66,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
             } else if (data.action === 'msg_status') {
                 updateTickStatus(data.message_id, data.status);
+
+            } else if (data.action === 'msg_deleted') {
+                const msgEl = document.querySelector(`.message[data-msg-id="${data.message_id}"]`);
+                if (!msgEl) return;
+                
+                if (data.delete_type === 'me') {
+                    msgEl.remove();
+                } else if (data.delete_type === 'everyone') {
+                    // Remove existing bubbles
+                    msgEl.querySelectorAll('.message-bubble, .media-bubble').forEach(b => b.remove());
+                    // Insert deleted text bubble before meta
+                    const meta = msgEl.querySelector('.message-meta');
+                    const deletedBubble = document.createElement('div');
+                    deletedBubble.className = 'message-bubble msg-deleted-text';
+                    deletedBubble.textContent = '🚫 This message was deleted';
+                    msgEl.insertBefore(deletedBubble, meta);
+                    
+                    // Remove 'Delete for everyone' option from dropdown if exists
+                    const delEvBtn = msgEl.querySelector('.msg-dropdown-content button.del-everyone-btn');
+                    if (delEvBtn) delEvBtn.remove();
+                }
             }
         };
 
@@ -111,10 +132,23 @@ document.addEventListener('DOMContentLoaded', function () {
             ? `<span class="tick ${status || 'sent'}" data-msg-id="${messageId}">${tickIcon(status || 'sent')}</span>`
             : '';
 
+        const deleteForEveryoneHTML = isSelf 
+            ? `<button class="del-everyone-btn" onclick="deleteMessage(${messageId}, 'everyone')">Delete for everyone</button>` 
+            : '';
+            
+        const dropdown = `
+            <div class="msg-dropdown">
+                <button class="msg-dropdown-btn" onclick="toggleDropdown(this)">⋮</button>
+                <div class="msg-dropdown-content">
+                    <button onclick="deleteMessage(${messageId}, 'me')">Delete for me</button>
+                    ${deleteForEveryoneHTML}
+                </div>
+            </div>`;
+
         const html = `
             <div class="message ${cls}" data-msg-id="${messageId}">
                 <div class="message-bubble">${escapeHTML(text)}</div>
-                <div class="message-meta">${time}${tick}</div>
+                <div class="message-meta">${time}${tick}${dropdown}</div>
             </div>`;
 
         chatMessages.insertAdjacentHTML('beforeend', html);
@@ -160,4 +194,32 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }, 1500);
     });
+
+    // ── Global Delete Message & Dropdown ──────────────────────────────────────
+    window.toggleDropdown = function(btn) {
+        // Close others
+        document.querySelectorAll('.msg-dropdown-content.show').forEach(el => {
+            if (el !== btn.nextElementSibling) el.classList.remove('show');
+        });
+        btn.nextElementSibling.classList.toggle('show');
+    };
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.matches('.msg-dropdown-btn')) {
+            document.querySelectorAll('.msg-dropdown-content.show').forEach(el => el.classList.remove('show'));
+        }
+    });
+
+    window.deleteMessage = function(messageId, deleteType) {
+        if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+            chatSocket.send(JSON.stringify({
+                action: 'delete_message',
+                message_id: messageId,
+                delete_type: deleteType
+            }));
+            // Close dropdowns
+            document.querySelectorAll('.msg-dropdown-content.show').forEach(el => el.classList.remove('show'));
+        }
+    };
 });

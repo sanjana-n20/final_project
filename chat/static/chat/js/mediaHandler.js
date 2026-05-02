@@ -140,6 +140,19 @@ export function renderMediaBubble(data, isSelf) {
         ? `<span class="tick ${data.status || 'sent'}" data-msg-id="${data.message_id}">${tickIcon(data.status || 'sent')}</span>`
         : '';
 
+    const deleteForEveryoneHTML = isSelf 
+        ? `<button class="del-everyone-btn" onclick="deleteMessage(${data.message_id}, 'everyone')">Delete for everyone</button>` 
+        : '';
+        
+    const dropdown = `
+        <div class="msg-dropdown">
+            <button class="msg-dropdown-btn" onclick="toggleDropdown(this)">⋮</button>
+            <div class="msg-dropdown-content">
+                <button onclick="deleteMessage(${data.message_id}, 'me')">Delete for me</button>
+                ${deleteForEveryoneHTML}
+            </div>
+        </div>`;
+
     let mediaContent = '';
 
     if (data.message_type === 'image') {
@@ -210,7 +223,7 @@ export function renderMediaBubble(data, isSelf) {
     const html = `
         <div class="message ${cls}" data-msg-id="${data.message_id}">
             ${mediaContent}
-            <div class="message-meta">${time}${tickHtml}</div>
+            <div class="message-meta">${time}${tickHtml}${dropdown}</div>
         </div>`;
 
     chatMessages.insertAdjacentHTML('beforeend', html);

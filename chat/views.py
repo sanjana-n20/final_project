@@ -130,13 +130,26 @@ def chat_room_view(request, username):
     db_messages = Message.objects.filter(room_name=room_name).order_by('timestamp')
     chat_history = []
     for msg in db_messages:
+        if msg.sender == request.user and msg.deleted_by_sender:
+            continue
+        if msg.receiver == request.user and msg.deleted_by_receiver:
+            continue
+
         entry = {
             'sender': msg.sender.username,
             'timestamp': msg.timestamp,
             'message_type': msg.message_type,
             'message_id': msg.id,
             'status': msg.status,
+            'is_deleted_for_everyone': msg.is_deleted_for_everyone,
         }
+
+        if msg.is_deleted_for_everyone:
+            entry['message_type'] = 'text'
+            entry['content'] = '🚫 This message was deleted'
+            chat_history.append(entry)
+            continue
+
         if msg.message_type == 'text':
             entry['content'] = msg.get_content()
         else:

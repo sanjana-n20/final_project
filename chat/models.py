@@ -50,6 +50,10 @@ class Message(models.Model):
     media_aes_nonce = models.TextField(null=True, blank=True)
     # Auto-generated thumbnail for images
     thumbnail = models.ImageField(upload_to='chat/thumbnails/', null=True, blank=True)
+    # ── Deletion Tracking ─────────────────────────────────────────────────────
+    deleted_by_sender = models.BooleanField(default=False)
+    deleted_by_receiver = models.BooleanField(default=False)
+    is_deleted_for_everyone = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['timestamp']

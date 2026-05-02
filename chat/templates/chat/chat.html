@@ -82,7 +82,7 @@
                 {% endif %}
 
                     {% if msg.message_type == 'text' %}
-                        <div class="message-bubble">{{ msg.content }}</div>
+                        <div class="message-bubble {% if msg.is_deleted_for_everyone %}msg-deleted-text{% endif %}">{{ msg.content }}</div>
 
                     {% elif msg.message_type == 'image' %}
                         <div class="media-bubble img-bubble"
@@ -131,6 +131,17 @@
                             <span class="tick {{ msg.status }}" data-msg-id="{{ msg.message_id }}">
                                 {% if msg.status == 'seen' %}✓✓{% elif msg.status == 'delivered' %}✓✓{% else %}✓{% endif %}
                             </span>
+                        {% endif %}
+                        {% if not msg.is_deleted_for_everyone %}
+                        <div class="msg-dropdown">
+                            <button class="msg-dropdown-btn" onclick="toggleDropdown(this)">⋮</button>
+                            <div class="msg-dropdown-content">
+                                <button onclick="deleteMessage({{ msg.message_id }}, 'me')">Delete for me</button>
+                                {% if msg.sender == request.user.username %}
+                                <button class="del-everyone-btn" onclick="deleteMessage({{ msg.message_id }}, 'everyone')">Delete for everyone</button>
+                                {% endif %}
+                            </div>
+                        </div>
                         {% endif %}
                     </div>
                 </div>

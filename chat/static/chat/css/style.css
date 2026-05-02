@@ -465,3 +465,61 @@ body {
 /* ── No contacts ────────────────────────────────────────────────────────────── */
 .no-contacts { padding: 30px; text-align: center; color: var(--text-muted); }
 .no-contacts .hint { font-size: 12px; margin-top: 8px; }
+
+/* ── Message Dropdown ──────────────────────────────────────────────────────── */
+.msg-dropdown {
+    position: relative;
+    display: inline-block;
+    margin-left: 4px;
+}
+.msg-dropdown-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 4px;
+    border-radius: 4px;
+}
+.msg-dropdown-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text-main);
+}
+.msg-dropdown-content {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    background: rgba(30, 41, 59, 0.95);
+    backdrop-filter: blur(8px);
+    min-width: 140px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    z-index: 100;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    margin-bottom: 4px;
+}
+.message.received .msg-dropdown-content {
+    right: auto;
+    left: 0;
+}
+.msg-dropdown-content.show {
+    display: block;
+}
+.msg-dropdown-content button {
+    color: var(--text-main);
+    padding: 10px 14px;
+    text-align: left;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+}
+.msg-dropdown-content button:hover {
+    background: rgba(51, 65, 85, 0.9);
+}
+.msg-deleted-text {
+    font-style: italic;
+    color: var(--text-muted);
+}
